@@ -1,82 +1,40 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import PostCard from './components/PostCard';
 import PostComposer from './components/PostComposer';
-import MediaLibrary from './components/MediaLibrary';
-import Analytics from './components/Analytics';
-import TeamPeople from './components/TeamPeople';
-import Settings from './components/Settings';
-import Inspiration from './components/Inspiration';
-import { Post, PostStatus, View } from './types';
-import { Search, Filter, Plus, Loader2 } from 'lucide-react';
-import { getPosts, savePost } from './services/storage';
+import { Post, PostStatus } from './types';
+import { INITIAL_POSTS } from './constants';
+import { Filter, Search, SortAsc, ChevronDown } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [view, setView] = useState<View>('feed');
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [view, setView] = useState<'feed' | 'calendar'>('feed');
+  const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [filterStatus, setFilterStatus] = useState<PostStatus | 'all'>('all');
 
-  // Load posts on mount
-  useEffect(() => {
-    const loadData = async () => {
-        setIsLoading(true);
-        try {
-            const fetchedPosts = await getPosts();
-            setPosts(fetchedPosts);
-        } catch (error) {
-            console.error("Failed to load posts", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    loadData();
-  }, []);
-
   const filteredPosts = useMemo(() => {
-    let sorted = [...posts].sort((a, b) => b.date.getTime() - a.date.getTime()); // Newest first
+    let sorted = [...posts].sort((a, b) => a.date.getTime() - b.date.getTime());
     if (filterStatus !== 'all') {
       sorted = sorted.filter(p => p.status === filterStatus);
     }
     return sorted;
   }, [posts, filterStatus]);
 
-  const handleSavePost = async (newPostData: Omit<Post, 'id' | 'author' | 'comments'>, newComment?: string) => {
-    
-    let updatedComments = selectedPost ? [...selectedPost.comments] : [];
-    if (newComment) {
-        updatedComments.push({
-            id: Date.now().toString(),
-            author: 'You',
-            text: newComment,
-            createdAt: new Date()
-        });
+  const handleSavePost = (newPostData: Omit<Post, 'id' | 'author' | 'comments'>) => {
+    if (selectedPost) {
+      // Edit existing
+      setPosts(prev => prev.map(p => p.id === selectedPost.id ? { ...p, ...newPostData } : p));
+    } else {
+      // Create new
+      const newPost: Post = {
+        id: Date.now().toString(),
+        author: 'You',
+        comments: [],
+        ...newPostData
+      };
+      setPosts(prev => [...prev, newPost]);
     }
-
-    const postToSave: Post = selectedPost 
-        ? { ...selectedPost, ...newPostData, comments: updatedComments }
-        : {
-            id: Date.now().toString(),
-            author: 'Acme Corp',
-            comments: updatedComments,
-            ...newPostData
-          };
-
-    // Optimistic UI Update
-    setPosts(prev => {
-        if (selectedPost) {
-            return prev.map(p => p.id === postToSave.id ? postToSave : p);
-        } else {
-            return [postToSave, ...prev];
-        }
-    });
-
-    // Save to Backend
-    await savePost(postToSave);
-    
     setSelectedPost(null);
   };
 
@@ -85,115 +43,8 @@ const App: React.FC = () => {
     setIsComposerOpen(true);
   };
 
-  // Used when creating a post from Inspiration view
-  const handleDraftFromInspiration = (content: string) => {
-      setSelectedPost({
-          id: '',
-          content: content,
-          platform: 'linkedin', // Default
-          date: new Date(),
-          status: 'draft',
-          author: 'Acme Corp',
-          comments: []
-      } as Post);
-      setIsComposerOpen(true);
-  };
-
-  const renderContent = () => {
-      if (isLoading && view === 'feed') {
-          return (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-                  <Loader2 className="animate-spin mb-3" size={32} />
-                  <p>Loading your workspace...</p>
-              </div>
-          );
-      }
-
-      switch (view) {
-          case 'inspiration':
-              return <Inspiration onDraftPost={handleDraftFromInspiration} />;
-          case 'media':
-              return <MediaLibrary />;
-          case 'analytics':
-              return <Analytics />;
-          case 'team':
-              return <TeamPeople />;
-          case 'settings':
-              return <Settings />;
-          case 'calendar':
-              return (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 min-h-[700px] animate-fade-in-up">
-                    <div className="grid grid-cols-7 mb-4">
-                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                            <div key={day} className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest py-2">
-                                {day}
-                            </div>
-                        ))}
-                    </div>
-                    
-                    <div className="grid grid-cols-7 border-t border-l border-gray-100 bg-gray-50">
-                        {Array.from({ length: 35 }).map((_, i) => {
-                            const today = new Date();
-                            const currentDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay() + i);
-                            const isToday = currentDay.getDate() === new Date().getDate() && currentDay.getMonth() === new Date().getMonth();
-
-                            const dayPosts = filteredPosts.filter(p => {
-                                return p.date.getDate() === currentDay.getDate() && p.date.getMonth() === currentDay.getMonth();
-                            });
-
-                            return (
-                                <div key={i} className={`min-h-[120px] bg-white border-r border-b border-gray-100 p-2 transition-colors relative hover:bg-gray-50 ${isToday ? 'bg-indigo-50/10' : ''}`}>
-                                    <span className={`absolute top-2 right-2 text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-400'}`}>
-                                        {currentDay.getDate()}
-                                    </span>
-                                    <div className="mt-8 flex flex-col gap-1.5">
-                                        {dayPosts.map(post => (
-                                            <div 
-                                                key={post.id} 
-                                                onClick={() => openComposer(post)}
-                                                className="group cursor-pointer p-1.5 rounded text-[10px] font-medium border shadow-sm truncate flex items-center gap-1.5 bg-white border-gray-200 text-gray-600 hover:border-indigo-300 hover:shadow-md transition-all"
-                                            >
-                                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                                post.platform === 'instagram' ? 'bg-pink-500' : 
-                                                post.platform === 'twitter' ? 'bg-black' : 
-                                                post.platform === 'linkedin' ? 'bg-blue-700' : 'bg-blue-600'
-                                            }`} />
-                                            <span className="truncate">{post.content}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
-              );
-          case 'feed':
-          default:
-              return (
-                <div className="columns-1 md:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6 animate-fade-in-up">
-                    <div className="break-inside-avoid mb-6">
-                        <button 
-                            onClick={() => openComposer()}
-                            className="w-full min-h-[200px] border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center text-gray-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-white transition-all cursor-pointer group p-8 bg-gray-50"
-                        >
-                            <div className="w-12 h-12 rounded-full bg-white shadow-sm border border-gray-200 group-hover:bg-indigo-50 group-hover:border-indigo-200 flex items-center justify-center mb-3 transition-colors">
-                                <Plus size={24} className="text-gray-400 group-hover:text-indigo-600"/>
-                            </div>
-                            <span className="font-semibold text-sm">Create Post</span>
-                        </button>
-                    </div>
-
-                    {filteredPosts.map(post => (
-                        <PostCard key={post.id} post={post} onClick={() => openComposer(post)} />
-                    ))}
-                </div>
-              );
-      }
-  };
-
   return (
-    <div className="min-h-screen bg-[#F3F4F6] font-sans text-gray-900">
+    <div className="min-h-screen bg-gray-50 font-sans">
       <Sidebar 
         view={view} 
         setView={setView} 
@@ -201,61 +52,107 @@ const App: React.FC = () => {
       />
       
       <main className="ml-64 p-8 min-h-screen">
-        {/* Workspace Header - Only show on Feed/Calendar for cleanliness, or conditionally modify */}
-        {(view === 'feed' || view === 'calendar') && (
-             <header className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-                <div>
-                    <div className="flex items-center gap-2 text-gray-500 text-xs font-semibold uppercase tracking-wide mb-1">
-                        <span>Acme Corp</span>
-                        <span className="text-gray-300">/</span>
-                        <span className="text-indigo-600">Marketing Campaign Q3</span>
-                    </div>
-                    <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-                        {view === 'feed' ? 'Content Feed' : 'Calendar Overview'}
-                    </h1>
+        {/* Top Bar */}
+        <header className="flex justify-between items-center mb-8">
+            <div>
+                <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                    {view === 'feed' ? 'Content Feed' : 'Calendar Schedule'}
+                </h1>
+                <p className="text-gray-500 text-sm">Manage and schedule your social media presence.</p>
+            </div>
+            
+            <div className="flex items-center gap-3">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                        type="text" 
+                        placeholder="Search posts..." 
+                        className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent w-64"
+                    />
                 </div>
                 
-                <div className="flex items-center gap-3">
-                    {/* Search */}
-                    <div className="relative group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
-                        <input 
-                            type="text" 
-                            placeholder="Search posts..." 
-                            className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm w-full md:w-64 transition-all"
-                        />
-                    </div>
-                    
-                    {/* Filter */}
-                    <div className="flex bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
-                        <button 
-                            onClick={() => setFilterStatus('all')}
-                            className={`p-1.5 rounded transition-all ${filterStatus === 'all' ? 'text-indigo-600 bg-indigo-50' : 'text-gray-400 hover:text-gray-600'}`}
-                            title="All"
-                        >
-                            <Filter size={16} />
-                        </button>
-                        <div className="w-px bg-gray-200 mx-1 my-1"></div>
-                        {(['draft', 'approved'] as const).map(status => (
-                            <button 
-                                key={status}
-                                onClick={() => setFilterStatus(status)}
-                                className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${
-                                    filterStatus === status 
-                                        ? 'bg-indigo-50 text-indigo-700' 
-                                        : 'text-gray-500 hover:bg-gray-50'
-                                }`}
-                            >
-                                {status}
-                            </button>
-                        ))}
-                    </div>
+                <div className="flex bg-white rounded-lg border border-gray-200 p-1">
+                    <button 
+                        onClick={() => setFilterStatus('all')}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterStatus === 'all' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:bg-gray-50'}`}
+                    >
+                        All
+                    </button>
+                    <button 
+                        onClick={() => setFilterStatus('draft')}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterStatus === 'draft' ? 'bg-yellow-50 text-yellow-700' : 'text-gray-500 hover:bg-gray-50'}`}
+                    >
+                        Drafts
+                    </button>
+                    <button 
+                        onClick={() => setFilterStatus('scheduled')}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterStatus === 'scheduled' ? 'bg-blue-50 text-blue-700' : 'text-gray-500 hover:bg-gray-50'}`}
+                    >
+                        Scheduled
+                    </button>
                 </div>
-            </header>
+            </div>
+        </header>
+
+        {/* Content Area */}
+        {view === 'feed' ? (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredPosts.map(post => (
+                    <div key={post.id} className="h-full">
+                        <PostCard post={post} onClick={() => openComposer(post)} />
+                    </div>
+                ))}
+                
+                {/* Empty State / Add New Card */}
+                <button 
+                    onClick={() => openComposer()}
+                    className="border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center min-h-[300px] text-gray-400 hover:border-green-400 hover:text-green-600 hover:bg-green-50/50 transition-all cursor-pointer group"
+                >
+                    <div className="w-12 h-12 rounded-full bg-gray-100 group-hover:bg-green-100 flex items-center justify-center mb-3 transition-colors">
+                        <span className="text-2xl font-light">+</span>
+                    </div>
+                    <span className="font-medium">Create New Post</span>
+                </button>
+             </div>
+        ) : (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 min-h-[600px]">
+                {/* Simplified Calendar Simulation */}
+                <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-lg overflow-hidden border border-gray-200">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                        <div key={day} className="bg-gray-50 p-2 text-center text-xs font-semibold text-gray-500 uppercase">
+                            {day}
+                        </div>
+                    ))}
+                    {Array.from({ length: 35 }).map((_, i) => {
+                        const dayPosts = filteredPosts.filter(p => {
+                            // Mock distribution for visual demo - simplistic matching
+                            // In real app, match actual dates
+                            const d = new Date();
+                            d.setDate(d.getDate() + (i - 5)); // shift days around
+                            return p.date.getDate() === d.getDate() && p.date.getMonth() === d.getMonth();
+                        });
+
+                        return (
+                            <div key={i} className="bg-white min-h-[120px] p-2 hover:bg-gray-50 transition-colors">
+                                <div className="text-right text-xs text-gray-400 mb-2">{i + 1}</div>
+                                <div className="space-y-1">
+                                    {dayPosts.map(post => (
+                                         <div 
+                                            key={post.id} 
+                                            onClick={() => openComposer(post)}
+                                            className="text-[10px] p-1.5 rounded border border-gray-100 bg-gray-50 hover:bg-white hover:shadow-md cursor-pointer transition-all truncate"
+                                        >
+                                            <span className={`w-1.5 h-1.5 rounded-full inline-block mr-1 ${post.status === 'scheduled' ? 'bg-blue-500' : post.status === 'approved' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                                            {post.content.substring(0, 15)}...
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
         )}
-
-        {renderContent()}
-
       </main>
 
       <PostComposer 
@@ -263,6 +160,10 @@ const App: React.FC = () => {
         onClose={() => setIsComposerOpen(false)} 
         onSave={handleSavePost}
         initialPost={selectedPost}
-        key={selectedPost?.id || 'new'}
+        key={selectedPost?.id || 'new'} // Force re-render on switch
       />
     </div>
+  );
+};
+
+export default App;

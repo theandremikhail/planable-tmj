@@ -1,6 +1,5 @@
-
 import { Facebook, Instagram, Linkedin, Twitter } from 'lucide-react';
-import { Platform, Post, TeamMember } from './types';
+import { Platform, Post } from './types';
 import React from 'react';
 
 export const PLATFORMS: { id: Platform; name: string; icon: React.ReactNode; color: string }[] = [
@@ -43,10 +42,4 @@ export const INITIAL_POSTS: Post[] = [
     comments: [],
     mediaUrl: 'https://picsum.photos/800/800',
   },
-];
-
-export const INITIAL_TEAM: TeamMember[] = [
-    { id: '1', name: 'Alex Designer', email: 'alex@acme.com', role: 'Admin', avatar: 'https://ui-avatars.com/api/?name=Alex+Designer&background=374151&color=fff', status: 'Active' },
-    { id: '2', name: 'Sarah Social', email: 'sarah@acme.com', role: 'Editor', avatar: 'https://ui-avatars.com/api/?name=Sarah+Social&background=random', status: 'Active' },
-    { id: '3', name: 'Mike Manager', email: 'mike@acme.com', role: 'Viewer', avatar: 'https://ui-avatars.com/api/?name=Mike+Manager&background=random', status: 'Pending' },
 ];
