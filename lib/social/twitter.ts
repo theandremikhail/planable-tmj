@@ -11,10 +11,11 @@ interface TwitterConfig {
 }
 
 function getConfig(): TwitterConfig {
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, ''); // Remove trailing slash
   return {
     clientId: process.env.TWITTER_CLIENT_ID!,
     clientSecret: process.env.TWITTER_CLIENT_SECRET!,
-    redirectUri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/twitter/callback`,
+    redirectUri: `${appUrl}/api/auth/twitter/callback`,
   };
 }
 
