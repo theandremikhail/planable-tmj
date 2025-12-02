@@ -1,14 +1,14 @@
 // Export all social platform integrations
-export * as twitter from './twitter';
-export * as linkedin from './linkedin';
-export * as facebook from './facebook';
-export * as instagram from './instagram';
+export * as twitter from './twitter.js';
+export * as linkedin from './linkedin.js';
+export * as facebook from './facebook.js';
+export * as instagram from './instagram.js';
 
-import { postTweet, refreshTwitterToken } from './twitter';
-import { postToLinkedIn, getLinkedInUrn, refreshLinkedInToken } from './linkedin';
-import { postToFacebookPage } from './facebook';
-import { postToInstagram } from './instagram';
-import { sql } from '../db';
+import { postTweet, refreshTwitterToken } from './twitter.js';
+import { postToLinkedIn, getLinkedInUrn, refreshLinkedInToken } from './linkedin.js';
+import { postToFacebookPage } from './facebook.js';
+import { postToInstagram } from './instagram.js';
+import { sql } from '../db.js';
 
 export type Platform = 'twitter' | 'linkedin' | 'facebook' | 'instagram';
 

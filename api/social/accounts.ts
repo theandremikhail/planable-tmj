@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Real database mode
-  const { sql, getOrCreateUser } = await import('../../lib/db');
+  const { sql, getOrCreateUser } = await import('../../lib/db.js');
   const user = await getOrCreateUser();
 
   switch (req.method) {

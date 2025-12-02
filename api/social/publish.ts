@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql, getOrCreateUser } from '../../lib/db';
-import { publishToSocialMedia } from '../../lib/social';
+import { sql, getOrCreateUser } from '../../lib/db.js';
+import { publishToSocialMedia } from '../../lib/social/index.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {

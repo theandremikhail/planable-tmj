@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sql } from '../../lib/db';
-import { publishToSocialMedia } from '../../lib/social';
+import { sql } from '../../lib/db.js';
+import { publishToSocialMedia } from '../../lib/social/index.js';
 
 // This endpoint is called by Vercel Cron to publish scheduled posts
 // Configure in vercel.json with a cron schedule

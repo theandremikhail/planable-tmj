@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getOAuthState } from '../../../lib/oauth-utils';
-import { exchangeTwitterCode, getTwitterUser } from '../../../lib/social/twitter';
-import { exchangeLinkedInCode, getLinkedInUser } from '../../../lib/social/linkedin';
-import { exchangeFacebookCode, getLongLivedToken, getFacebookUser, getFacebookPages } from '../../../lib/social/facebook';
-import { exchangeInstagramCode, getLongLivedToken as getInstagramLongLivedToken, getInstagramAccounts } from '../../../lib/social/instagram';
+import { getOAuthState } from '../../../lib/oauth-utils.js';
+import { exchangeTwitterCode, getTwitterUser } from '../../../lib/social/twitter.js';
+import { exchangeLinkedInCode, getLinkedInUser } from '../../../lib/social/linkedin.js';
+import { exchangeFacebookCode, getLongLivedToken, getFacebookUser, getFacebookPages } from '../../../lib/social/facebook.js';
+import { exchangeInstagramCode, getLongLivedToken as getInstagramLongLivedToken, getInstagramAccounts } from '../../../lib/social/instagram.js';
 
 // Check if database is configured
 const hasDatabase = !!process.env.POSTGRES_URL;
@@ -122,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Save to database if available
     if (hasDatabase) {
-      const { sql } = await import('../../../lib/db');
+      const { sql } = await import('../../../lib/db.js');
       await sql`
         INSERT INTO social_accounts (
           user_id, platform, platform_user_id, platform_username,

@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { generateState, generateCodeVerifier, generateCodeChallenge, storeOAuthState } from '../../../lib/oauth-utils';
-import { getTwitterAuthUrl } from '../../../lib/social/twitter';
-import { getLinkedInAuthUrl } from '../../../lib/social/linkedin';
-import { getFacebookAuthUrl } from '../../../lib/social/facebook';
-import { getInstagramAuthUrl } from '../../../lib/social/instagram';
+import { generateState, generateCodeVerifier, generateCodeChallenge, storeOAuthState } from '../../../lib/oauth-utils.js';
+import { getTwitterAuthUrl } from '../../../lib/social/twitter.js';
+import { getLinkedInAuthUrl } from '../../../lib/social/linkedin.js';
+import { getFacebookAuthUrl } from '../../../lib/social/facebook.js';
+import { getInstagramAuthUrl } from '../../../lib/social/instagram.js';
 
 // Check if database is configured
 const hasDatabase = !!process.env.POSTGRES_URL;
@@ -24,7 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let userId = 1; // Default mock user
 
     if (hasDatabase) {
-      const { getOrCreateUser } = await import('../../../lib/db');
+      const { getOrCreateUser } = await import('../../../lib/db.js');
       const user = await getOrCreateUser();
       userId = user.id;
     }

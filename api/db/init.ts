@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { initializeDatabase } from '../../lib/db';
+import { initializeDatabase } from '../../lib/db.js';
 
 // One-time endpoint to initialize database tables
 // Call this once after setting up Vercel Postgres
