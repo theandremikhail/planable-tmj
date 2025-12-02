@@ -15,7 +15,33 @@ export function generateCodeChallenge(verifier: string): string {
   return createHash('sha256').update(verifier).digest('base64url');
 }
 
-// Simple in-memory store for OAuth state (use Redis in production)
+// Encode OAuth state data for cookie storage
+export function encodeOAuthState(data: {
+  state: string;
+  platform: string;
+  userId: number;
+  codeVerifier?: string;
+}): string {
+  return Buffer.from(JSON.stringify(data)).toString('base64url');
+}
+
+// Decode OAuth state data from cookie
+export function decodeOAuthState(encoded: string): {
+  state: string;
+  platform: string;
+  userId: number;
+  codeVerifier?: string;
+} | null {
+  try {
+    const decoded = Buffer.from(encoded, 'base64url').toString('utf-8');
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+}
+
+// Legacy functions kept for compatibility but now use cookies
+// These are no longer needed but kept to avoid breaking imports
 const oauthStateStore = new Map<string, {
   platform: string;
   codeVerifier?: string;
@@ -23,23 +49,13 @@ const oauthStateStore = new Map<string, {
   createdAt: number;
 }>();
 
-// Clean up expired states (older than 10 minutes)
-function cleanupExpiredStates() {
-  const now = Date.now();
-  for (const [key, value] of oauthStateStore.entries()) {
-    if (now - value.createdAt > 10 * 60 * 1000) {
-      oauthStateStore.delete(key);
-    }
-  }
-}
-
 export function storeOAuthState(
   state: string,
   platform: string,
   userId: number,
   codeVerifier?: string
 ): void {
-  cleanupExpiredStates();
+  // Store in memory as backup (won't work across serverless invocations)
   oauthStateStore.set(state, {
     platform,
     codeVerifier,
@@ -55,7 +71,7 @@ export function getOAuthState(state: string): {
 } | null {
   const data = oauthStateStore.get(state);
   if (data) {
-    oauthStateStore.delete(state); // One-time use
+    oauthStateStore.delete(state);
     return { platform: data.platform, codeVerifier: data.codeVerifier, userId: data.userId };
   }
   return null;

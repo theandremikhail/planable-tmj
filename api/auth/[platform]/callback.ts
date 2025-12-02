@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getOAuthState } from '../../../lib/oauth-utils.js';
+import { decodeOAuthState } from '../../../lib/oauth-utils.js';
 import { exchangeTwitterCode, getTwitterUser } from '../../../lib/social/twitter.js';
 import { exchangeLinkedInCode, getLinkedInUser } from '../../../lib/social/linkedin.js';
 import { exchangeFacebookCode, getLongLivedToken, getFacebookUser, getFacebookPages } from '../../../lib/social/facebook.js';
@@ -7,6 +7,21 @@ import { exchangeInstagramCode, getLongLivedToken as getInstagramLongLivedToken,
 
 // Check if database is configured
 const hasDatabase = !!process.env.POSTGRES_URL;
+
+// Parse cookies from request
+function parseCookies(cookieHeader: string | undefined): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  if (!cookieHeader) return cookies;
+
+  cookieHeader.split(';').forEach(cookie => {
+    const [name, ...rest] = cookie.split('=');
+    if (name && rest.length) {
+      cookies[name.trim()] = rest.join('=').trim();
+    }
+  });
+
+  return cookies;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -25,13 +40,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing required parameters' });
   }
 
-  // Verify state
-  const storedState = getOAuthState(state);
-  if (!storedState || storedState.platform !== platform) {
-    return res.status(400).json({ error: 'Invalid state parameter' });
+  // Get OAuth state from cookie
+  const cookies = parseCookies(req.headers.cookie);
+  const encodedState = cookies['oauth_state'];
+
+  if (!encodedState) {
+    return res.status(400).json({ error: 'Missing OAuth state cookie. Please try again.' });
+  }
+
+  const storedState = decodeOAuthState(encodedState);
+
+  if (!storedState || storedState.state !== state || storedState.platform !== platform) {
+    return res.status(400).json({ error: 'Invalid state parameter. Please try again.' });
   }
 
   const { userId, codeVerifier } = storedState;
+
+  // Clear the OAuth state cookie
+  res.setHeader('Set-Cookie', 'oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0');
 
   try {
     let accessToken: string;

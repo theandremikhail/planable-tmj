@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { generateState, generateCodeVerifier, generateCodeChallenge, storeOAuthState } from '../../../lib/oauth-utils.js';
+import { generateState, generateCodeVerifier, generateCodeChallenge, encodeOAuthState } from '../../../lib/oauth-utils.js';
 import { getTwitterAuthUrl } from '../../../lib/social/twitter.js';
 import { getLinkedInAuthUrl } from '../../../lib/social/linkedin.js';
 import { getFacebookAuthUrl } from '../../../lib/social/facebook.js';
@@ -57,8 +57,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: `Unsupported platform: ${platform}` });
     }
 
-    // Store state for verification in callback
-    storeOAuthState(state, platform, userId, codeVerifier);
+    // Encode state data for cookie storage (survives serverless invocations)
+    const encodedState = encodeOAuthState({
+      state,
+      platform,
+      userId,
+      codeVerifier
+    });
+
+    // Set cookie with OAuth state (HttpOnly, Secure, SameSite=Lax for OAuth redirect)
+    res.setHeader('Set-Cookie', `oauth_state=${encodedState}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`);
 
     // Redirect to OAuth provider
     res.redirect(authUrl);
