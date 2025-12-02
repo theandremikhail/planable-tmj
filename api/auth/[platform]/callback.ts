@@ -4,7 +4,9 @@ import { exchangeTwitterCode, getTwitterUser } from '../../../lib/social/twitter
 import { exchangeLinkedInCode, getLinkedInUser } from '../../../lib/social/linkedin';
 import { exchangeFacebookCode, getLongLivedToken, getFacebookUser, getFacebookPages } from '../../../lib/social/facebook';
 import { exchangeInstagramCode, getLongLivedToken as getInstagramLongLivedToken, getInstagramAccounts } from '../../../lib/social/instagram';
-import { sql } from '../../../lib/db';
+
+// Check if database is configured
+const hasDatabase = !!process.env.POSTGRES_URL;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
@@ -16,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (error) {
     console.error(`OAuth error for ${platform}:`, error);
-    return res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/settings?error=oauth_denied`);
+    return res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}?error=oauth_denied`);
   }
 
   if (typeof code !== 'string' || typeof state !== 'string' || typeof platform !== 'string') {
@@ -97,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Get Instagram business accounts
         const accounts = await getInstagramAccounts(accessToken);
         if (accounts.length === 0) {
-          return res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/settings?error=no_instagram_business_account`);
+          return res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}?error=no_instagram_business_account`);
         }
 
         // Use the first Instagram business account
@@ -118,32 +120,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? new Date(Date.now() + expiresIn * 1000).toISOString()
       : null;
 
-    // Save or update social account
-    await sql`
-      INSERT INTO social_accounts (
-        user_id, platform, platform_user_id, platform_username,
-        access_token, refresh_token, token_expires_at,
-        page_id, page_access_token
-      ) VALUES (
-        ${userId}, ${platform}, ${platformUserId}, ${platformUsername},
-        ${accessToken}, ${refreshToken}, ${tokenExpiresAt},
-        ${pageId}, ${pageAccessToken}
-      )
-      ON CONFLICT (user_id, platform, platform_user_id)
-      DO UPDATE SET
-        access_token = EXCLUDED.access_token,
-        refresh_token = COALESCE(EXCLUDED.refresh_token, social_accounts.refresh_token),
-        token_expires_at = EXCLUDED.token_expires_at,
-        page_id = EXCLUDED.page_id,
-        page_access_token = EXCLUDED.page_access_token,
-        platform_username = EXCLUDED.platform_username,
-        updated_at = CURRENT_TIMESTAMP
-    `;
+    // Save to database if available
+    if (hasDatabase) {
+      const { sql } = await import('../../../lib/db');
+      await sql`
+        INSERT INTO social_accounts (
+          user_id, platform, platform_user_id, platform_username,
+          access_token, refresh_token, token_expires_at,
+          page_id, page_access_token
+        ) VALUES (
+          ${userId}, ${platform}, ${platformUserId}, ${platformUsername},
+          ${accessToken}, ${refreshToken}, ${tokenExpiresAt},
+          ${pageId}, ${pageAccessToken}
+        )
+        ON CONFLICT (user_id, platform, platform_user_id)
+        DO UPDATE SET
+          access_token = EXCLUDED.access_token,
+          refresh_token = COALESCE(EXCLUDED.refresh_token, social_accounts.refresh_token),
+          token_expires_at = EXCLUDED.token_expires_at,
+          page_id = EXCLUDED.page_id,
+          page_access_token = EXCLUDED.page_access_token,
+          platform_username = EXCLUDED.platform_username,
+          updated_at = CURRENT_TIMESTAMP
+      `;
+    } else {
+      // Log success for demo/testing without database
+      console.log(`[Mock Mode] Would save ${platform} account for user ${userId}:`, {
+        platformUserId,
+        platformUsername,
+        tokenExpiresAt
+      });
+    }
 
     // Redirect back to app with success
-    res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/settings?connected=${platform}`);
+    res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}?connected=${platform}&username=${encodeURIComponent(platformUsername)}`);
   } catch (error) {
     console.error(`OAuth callback error for ${platform}:`, error);
-    res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/settings?error=oauth_failed`);
+    res.redirect(`${process.env.NEXT_PUBLIC_APP_URL}?error=oauth_failed&details=${encodeURIComponent(error instanceof Error ? error.message : 'Unknown error')}`);
   }
 }
